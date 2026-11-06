@@ -2496,16 +2496,26 @@ if __name__ == '__main__':
     def _report_job_cpu():
         """CPU time of the whole job (this process + every ffmpeg it waited
         for) for app.py's log, to compare pipeline versions per job."""
-        import resource
-        own = resource.getrusage(resource.RUSAGE_SELF)
-        kids = resource.getrusage(resource.RUSAGE_CHILDREN)
-        py_s = own.ru_utime + own.ru_stime
-        children_s = kids.ru_utime + kids.ru_stime
-        print("JOB_CPU " + json.dumps({
-            "wall_s": round(time.time() - script_start_time, 1),
-            "cpu_s": round(py_s + children_s, 1), "py_s": round(py_s, 1),
-            "children_s": round(children_s, 1), "gpu_decode": dict(gpu_decode.STATS),
-        }), flush=True)
+        try:
+            import resource
+            own = resource.getrusage(resource.RUSAGE_SELF)
+            kids = resource.getrusage(resource.RUSAGE_CHILDREN)
+            py_s = own.ru_utime + own.ru_stime
+            children_s = kids.ru_utime + kids.ru_stime
+            print("JOB_CPU " + json.dumps({
+                "wall_s": round(time.time() - script_start_time, 1),
+                "cpu_s": round(py_s + children_s, 1), "py_s": round(py_s, 1),
+                "children_s": round(children_s, 1), "gpu_decode": dict(gpu_decode.STATS),
+            }), flush=True)
+        except Exception:
+            try:
+                print("JOB_CPU " + json.dumps({
+                    "wall_s": round(time.time() - script_start_time, 1),
+                    "cpu_s": round(time.process_time(), 1),
+                    "gpu_decode": dict(getattr(gpu_decode, "STATS", {})),
+                }), flush=True)
+            except Exception:
+                pass
 
     import atexit
     atexit.register(_report_job_cpu)

@@ -317,43 +317,26 @@
        VITE_OPENPANEL_API_URL / VITE_OPENPANEL_CLIENT_ID at your own OpenPanel
        instance (see .env.example) and add your hostname to ANALYTICS_HOSTS. -->
     <script>
-      window.op = window.op || function () { var n = []; return new Proxy(function () { arguments.length && n.push([].slice.call(arguments)); }, { get: function (t, r) { return "q" === r ? n : function () { n.push([r].concat([].slice.call(arguments))); }; }, has: function (t, r) { return "q" === r; } }); }();
-      window.__osAnalyticsInit = (function () {
-        var started = false;
-        return function () {
-          if (started) return false;
-          // Vite substitutes these at build time and leaves the placeholder literal
-          // in place when the variable is undefined.
-          var apiUrl = "%VITE_OPENPANEL_API_URL%";
-          var clientId = "%VITE_OPENPANEL_CLIENT_ID%";
-          var unset = function (v) { return !v || v.charAt(0) === "%"; };
-          if (unset(apiUrl) || unset(clientId)) return false;
-
-          // Second gate: hosts allowed to report. A dist/ built with credentials
-          // stays inert anywhere else (a fork, a mirror, a preview domain), so a
-          // deployment can never report into somebody else's dashboard.
-          var ANALYTICS_HOSTS = /^(www\.)?openshorts\.app$/;
-          if (!ANALYTICS_HOSTS.test(location.hostname)) return false;
-
-          started = true;
-          window.op("init", {
-            apiUrl: apiUrl,
-            clientId: clientId,
-            trackScreenViews: true,
-            trackOutgoingLinks: true,
-            trackAttributes: true,
-          });
-
-          var s = document.createElement("script");
-          s.src = "/op1.js";
-          s.defer = true;
-          s.async = true;
-          document.head.appendChild(s);
-          return true;
-        };
-      })();
+      window.op = window.op || function () {};
+      window.__osAnalyticsInit = function () { return false; };
     </script>
-  </head>
+    <script>
+    window.addEventListener('error', function(e) {
+      var d = document.createElement('div');
+      d.id = 'visible-error-box';
+      d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999999;background:#b91c1c;color:#fff;padding:24px;font-family:monospace;font-size:16px;white-space:pre-wrap;box-shadow:0 10px 25px rgba(0,0,0,0.8);';
+      d.textContent = 'CRITICAL JS ERROR:\n' + (e.message || e.error) + '\n\nFile: ' + (e.filename || '') + ':' + (e.lineno || '');
+      document.body ? document.body.appendChild(d) : document.documentElement.appendChild(d);
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      var d = document.createElement('div');
+      d.id = 'visible-rejection-box';
+      d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999999;background:#b91c1c;color:#fff;padding:24px;font-family:monospace;font-size:16px;white-space:pre-wrap;box-shadow:0 -10px 25px rgba(0,0,0,0.8);';
+      d.textContent = 'UNHANDLED PROMISE REJECTION:\n' + (e.reason && e.reason.stack ? e.reason.stack : (e.reason || e));
+      document.body ? document.body.appendChild(d) : document.documentElement.appendChild(d);
+    });
+  </script>
+</head>
 
 <body>
   <div id="root"></div>

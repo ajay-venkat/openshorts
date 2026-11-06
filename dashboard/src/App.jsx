@@ -292,7 +292,16 @@ function App() {
   // the ephemeral local /videos/ files have been cleaned up (e.g. after a reload).
   const [durableClips, setDurableClips] = useState({});
 
-  const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_key') || '');
+  const DEFAULT_GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+  const [apiKey, setApiKey] = useState(() => {
+    const stored = localStorage.getItem('gemini_key');
+    if (stored) return stored;
+    if (DEFAULT_GEMINI_KEY) {
+      try { localStorage.setItem('gemini_key', DEFAULT_GEMINI_KEY); } catch (_) {}
+      return DEFAULT_GEMINI_KEY;
+    }
+    return '';
+  });
   // Social API State - Load encrypted or plain
   const [uploadPostKey, setUploadPostKey] = useState(() => {
     const stored = localStorage.getItem('uploadPostKey_v3');
@@ -886,7 +895,7 @@ function App() {
   // A self-hosted server running the moment picker on a local LLM
   // (LLM_BASE_URL) does not need a Gemini key for the core pipeline.
   const geminiOk = !!apiKey || !!localLlm;
-  const keysMissing = !billingEnabled && (!geminiOk || !uploadPostKey);
+  const keysMissing = !billingEnabled && !geminiOk;
   const needsPlan = billingEnabled && !isManaged;   // hosted, signed-out or no active plan/trial
 
   // Fresh sign-up: Clip Generator tutorial (AuthContext set os_show_clip_tutorial
@@ -2435,8 +2444,14 @@ function App() {
                         </p>
                       </div>
                     ) : status === 'error' ? (
-                      <div className="h-full min-h-[120px] flex flex-col items-center justify-center text-danger space-y-2">
-                        <p>Generation failed.</p>
+                      <div className="h-full min-h-[120px] flex flex-col items-center justify-center text-danger space-y-3">
+                        <p className="font-medium">Generation failed.</p>
+                        <button
+                          onClick={handleReset}
+                          className="btn-primary px-4 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Plus size={14} /> Start New Project
+                        </button>
                       </div>
                     ) : null
                   )}

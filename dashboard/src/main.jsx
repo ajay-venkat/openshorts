@@ -1,4 +1,4 @@
-import { StrictMode, useState, useEffect, lazy, Suspense } from 'react'
+import { Component, StrictMode, useState, useEffect, lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import Landing from './Landing.jsx'
@@ -12,9 +12,39 @@ import { track } from './lib/analytics'
 import { applyConsent } from './lib/consent'
 import CookieBanner from './components/CookieBanner'
 
-const App = lazy(() => import('./App.jsx'))
+import App from './App.jsx'
 const Legal = lazy(() => import('./Legal.jsx'))
 const OAuthConsent = lazy(() => import('./components/OAuthConsent'))
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#0b0d12] text-white flex flex-col items-center justify-center p-6 text-center">
+          <h2 className="text-xl font-bold text-red-500 mb-2">Something went wrong</h2>
+          <p className="text-sm text-zinc-400 max-w-md mb-4">{this.state.error?.message || String(this.state.error)}</p>
+          <button 
+            onClick={() => { localStorage.clear(); window.location.reload(); }}
+            className="px-4 py-2 bg-orange-600 hover:bg-orange-500 rounded text-sm font-semibold transition-colors"
+          >
+            Clear Cache &amp; Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function PageShell({ title, children }) {
   return (
@@ -112,13 +142,12 @@ function Root() {
     if (hash.startsWith('#/pricing')) return 'pricing';
     if (hash.startsWith('#/login')) return 'login';
     if (hash === '#legal') return 'legal';
-    // The app lives at #app (and #app?tab=… deep links). Everything else,
-    // including a bare / and the section anchors (#features, #pricing…) and
-    // #landing, is the landing page. There is deliberately no "returning
-    // visitor" shortcut into the app: the static fallback is the landing, so
-    // swapping it for the app after hydration made / jump a second after load,
-    // and the logo of every page has to reach the landing.
+    if (hash === '#landing') return 'landing';
     if (hash === '#app' || hash.startsWith('#app?') || hash === '#/app') return 'app';
+    // For local / self-hosted environments, default directly to the app workbench
+    if (typeof window !== 'undefined' && (!window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname.includes('openshorts.app'))) {
+      return 'app';
+    }
     return 'landing';
   };
 
@@ -158,11 +187,18 @@ applyConsent();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AuthProvider>
-      <Suspense fallback={<div className="min-h-screen bg-paper flex items-center justify-center text-muted text-sm lowercase">loading…</div>}>
-        <Root />
-      </Suspense>
-      <CookieBanner />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Suspense fallback={
+          <div className="min-h-screen bg-[#0b0d12] flex flex-col items-center justify-center gap-3 text-white">
+            <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="text-sm font-medium tracking-wide text-zinc-300">Loading OpenShorts...</div>
+          </div>
+        }>
+          <Root />
+        </Suspense>
+        <CookieBanner />
+      </AuthProvider>
+    </ErrorBoundary>
   </StrictMode>,
 )

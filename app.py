@@ -3067,9 +3067,14 @@ def _job_nice():
 
 
 def _lower_priority():
+    if sys.platform == "win32":
+        return
     n = _job_nice()
-    if n:
-        os.nice(n)
+    if n and hasattr(os, "nice"):
+        try:
+            os.nice(n)
+        except Exception:
+            pass
 
 
 def _job_encode_env(env):
@@ -3114,13 +3119,20 @@ async def run_job(job_id, job_data):
     print(f"🎬 [run_job] Executing command for {job_id}: {' '.join(cmd)}")
     
     try:
+        popen_kwargs = {
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.STDOUT, # Merge stderr to stdout
+            "env": env,
+            "cwd": os.getcwd(),
+        }
+        if sys.platform != "win32":
+            popen_kwargs["preexec_fn"] = _lower_priority
+        elif hasattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS"):
+            popen_kwargs["creationflags"] = subprocess.BELOW_NORMAL_PRIORITY_CLASS
+
         process = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT, # Merge stderr to stdout
-            env=env,
-            cwd=os.getcwd(),
-            preexec_fn=_lower_priority,
+            **popen_kwargs,
         )
         
         # We need to capture logs in a thread because Popen isn't async
